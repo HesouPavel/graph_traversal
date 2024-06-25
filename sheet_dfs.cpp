@@ -5,7 +5,7 @@
 /* Storytime:
  * let's have a very simple table processor,
  * it's only one dimensional, and the position of a cell
- * within the sheet is represented by a string,
+ * within the m_sheet is represented by a string,
  * cells can contain either a double or a reference to another cell,
  * during evaluation, it can happen that cell A holds reference to cell B
  * and B back to A, in this case a logic error occurs and such error has to be recognized,
@@ -33,37 +33,38 @@
 // see https://en.cppreference.com/w/cpp/utility/variant
 using value = std::variant<double, std::string>;
 
-class CCell ;
+class cell ;
 
-class CSheet {
+class sheet {
 public:
-    CSheet () = default;
+    sheet () = default;
     bool   defineCell (const std::string &s, const value &x);
     double get (const std::string &s);
     double getRef (const std::string &s, std::set<std::string> &visited);
 private:
-    std::map<std::string, CCell> sheet;
+    std::map<std::string, cell> m_sheet;
 };
 
-/// CCell is the apex
-class CCell {
+/// CCell is the apex of the graph
+class cell {    
 public:
-    CCell () = default;
+    cell () = default;
 
-    CCell ( std::string &s ) : m_val( s ) {}
+    cell ( std::string &s ) : m_val( s ) {}
 
-    CCell ( double d ) : m_val( d ) {}
+    cell ( double d ) : m_val( d ) {}
 
-    double getVal(CSheet &sheet, std::set<std::string> &visited) {
+    double getVal(sheet &sheet, std::set<std::string> &visited) {
         // .index() returns 0 if m_val contains double, 1 if std::string
         if ( m_val.index() ) {
             std::string ref = std::get<std::string>(m_val);
             // tries to emplace, if successful, emplace().second holds true, false is returned when element has already existed in the given set
             if (!visited.emplace(ref).second)
                 throw std::logic_error("CYCLIC REFERENCE");
-            /// moves down the theoretical edge of the graph
+            /// moves down the edge of the graph, evaluates the referenced cell
             return sheet.getRef(ref, visited);
         }
+        // returns held value if m_val is double
         return std::get<double>(m_val);
     }
 
@@ -72,17 +73,17 @@ private:
     value m_val;
 };
 
-bool CSheet::defineCell(const std::string &s, const value &x) {
+bool sheet::defineCell(const std::string &s, const value &x) {
     // if we try to std::get with wrong index for variant, std::bad_variant_access is thrown
     try {
         std::string ref = std::get<std::string>(x);
-        CCell cell(ref);
-        sheet[s] = cell;
+        cell cell(ref);
+        m_sheet[s] = cell;
     } catch (std::bad_variant_access &e) {
         try {
             double val = std::get<double>(x);
-            CCell cell(val);
-            sheet[s] = cell;
+            cell cell(val);
+            m_sheet[s] = cell;
         } catch (std::bad_variant_access &f) {
             return false;
         }
@@ -90,17 +91,17 @@ bool CSheet::defineCell(const std::string &s, const value &x) {
     return true;
 }
 
-double CSheet::get(const std::string &s) {
-    /* will return an iterator to the element or the end of sheet, if the element was not found
+double sheet::get(const std::string &s) {
+    /* will return an iterator to the element or the end of m_sheet, if the element was not found
      * this way this method has O(logn) time complexity
      * compared to
-     if ( sheet.contains(s); )  {
+     if ( m_sheet.contains(s); )  {
          std::set<std::string> visited({s});
-         return sheet.at(s).getVal(sheet, visited);
+         return m_sheet.at(s).getVal(m_sheet, visited);
      * which is double the complexity
      */
-    auto it = sheet.find(s);
-    if (it != sheet.end()) {
+    auto it = m_sheet.find(s);
+    if (it != m_sheet.end()) {
         std::set<std::string> visited({s});
         /// beginning of DFS,
         return it->second.getVal(*this, visited);
@@ -109,9 +110,9 @@ double CSheet::get(const std::string &s) {
 }
 
 // for recursive calling by cell evaluating its reference
-double CSheet::getRef(const std::string &s, std::set<std::string> &visited) {
-    auto it = sheet.find(s);
-    if (it != sheet.end()) {
+double sheet::getRef(const std::string &s, std::set<std::string> &visited) {
+    auto it = m_sheet.find(s);
+    if (it != m_sheet.end()) {
         visited.emplace(s);
         double ret = it->second.getVal(*this, visited);
         /* erasing in this scenario doesn't make much sense, as one apex has at most one edge leading from ,
@@ -126,7 +127,7 @@ double CSheet::getRef(const std::string &s, std::set<std::string> &visited) {
 
 int main() {
 
-    CSheet x1;
+    sheet x1;
 
     assert(x1.defineCell("a", 1.0));
     assert(x1.defineCell("b", "a"));
