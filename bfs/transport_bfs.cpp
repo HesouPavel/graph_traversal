@@ -2,6 +2,25 @@
 // Created by paul on 25.6.24.
 //
 
+
+/*
+ *      * STORYTIME *
+ * Let's say we have a city with some public transport.
+ * It takes one unit of time to get from one stop to the next.
+ * We want to find the shortest list of stops through which we'd get to desired destination.
+ * First we input the connections. These are stored in a map, for each stop we record adjacent
+ * stops.
+ * Finding a route from A to B works as following:
+ * A queue (q) of lists of strings is created - the lists contains the route from A to reached stop.
+ * A map (visited) string:unsigned is created - serves for checking if reached stop (string) has
+ *      been reached with a better time (unsigned);
+ * Each loop takes the next element (list) from the q, checks whether it's the "to" stop, in which case
+ *      puts the current list to "ret", if it's shorter than the previous route.
+ *      Also checks all the possible routes (values in m_conn with the current stop as key) to which
+ *      it's possible to travel to from current stop. If the potential destination has already been
+ *      visited by the algorithm, it's checked which route was shorter. If the current is shorter,
+ *      it's pushed to the q to be evaluated.
+ */
 #include <map>
 #include <set>
 #include <queue>
@@ -10,31 +29,18 @@
 #include <string>
 #include <stdexcept>
 
-
-class route{
-public:
-    route() = default;
-    void add_Stop ( std::string &stop ) {
-        m_route.push_back(stop);
-    }
-    std::vector<std::string> get_route () {
-        return m_route;
-    }
-private:
-    std::vector<std::string> m_route;
-};
-
 class transport_system {
 public:
     transport_system() = default;
+
     // adds bidirectional connection between stops, allows for fluent interface
-    transport_system& add_connection( std::string from, std::string to ){
+    transport_system& add_connection( const std::string &from, const std::string &to ){
         m_conn[from].emplace(to);
         m_conn[to].emplace(from);
         return *this;
     }
     // returns a list with the least amount of transfers
-    std::vector<std::string> find_route ( std::string_view from, std::string_view to ) {
+    std::vector<std::string> find_route ( const std::string &from, const std::string &to ) const {
         std::vector<std::string> ret;   // holds a list of transfers that is the shortest
         std::queue<std::vector<std::string>> q;   // a queue of reached apexes, those are th last elements in the vector
         std::map<std::string, unsigned > visited;       // visited apexes, with int. value telling number of transfers
